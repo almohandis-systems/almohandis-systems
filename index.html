@@ -71,8 +71,48 @@
       .no-print { display: none !important; }
     }
   </style>
+
+  <style id="cinematic-luxury-upgrade">
+    /* ==== Cinematic Luxury Upgrade (Nov 2026) ==== */
+    html, body { overflow-x: hidden; }
+    * { min-width: 0; }
+    img, svg, video, canvas { max-width: 100%; }
+    html { scroll-behavior: smooth; -webkit-tap-highlight-color: transparent; }
+    body::before { content:""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(900px 480px at 85% -5%, rgba(217,119,6,0.10), transparent 60%),
+        radial-gradient(760px 480px at 8% 108%, rgba(30,64,175,0.10), transparent 62%); }
+    button { transition: transform .18s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease, filter .2s ease, background-color .2s ease, border-color .2s ease; }
+    button:hover { filter: brightness(1.07); }
+    button:active { transform: scale(.96); }
+    :focus-visible { outline: 2px solid #f59e0b; outline-offset: 2px; }
+    .gold-btn { box-shadow: 0 10px 30px -10px rgba(245,158,11,.55), inset 0 1px 0 rgba(255,255,255,.35); }
+    .gold-btn:hover { transform: translateY(-1px); box-shadow: 0 16px 36px -10px rgba(245,158,11,.65); }
+    .glass-card { box-shadow: 0 24px 60px -32px rgba(0,0,0,.9); transition: border-color .25s ease, box-shadow .3s ease; }
+    .glass-card:hover { border-color: rgba(251,191,36,.38) !important; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #0b1120; }
+    ::-webkit-scrollbar-thumb { background: linear-gradient(180deg,#b45309,#78350f); border-radius: 8px; border: 2px solid #0b1120; }
+    /* Cinematic customer-menu frame with real photography */
+    #view-customer-menu > div:first-child {
+      background-image: linear-gradient(rgba(2,6,23,0.86), rgba(2,6,23,0.95)),
+        url('https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1400&q=80') !important;
+      background-size: cover; background-position: center;
+      border-color: rgba(251,191,36,.35) !important;
+      box-shadow: 0 40px 90px -40px rgba(245,158,11,.25), 0 30px 60px -30px rgba(0,0,0,.9) !important;
+    }
+    #customer-restaurant-title { background: linear-gradient(135deg,#fde68a 0%,#f59e0b 55%,#d97706 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 2px 10px rgba(245,158,11,.35)); }
+    #view-customer-menu .glass-card, #view-customer-menu .bg-slate-900 { backdrop-filter: blur(10px); }
+    @media (prefers-reduced-motion: reduce) { button, .glass-card { transition: none !important; } }
+  </style>
 </head>
 <body class="min-h-screen text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950">
+<!-- App-link sharing. No referral credit, account state, or customer data. -->
+<div id="portfolio-share-bar" dir="rtl" style="box-sizing:border-box;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;padding:6px 12px;background:#f8fafc;color:#0f172a;font:600 12px/1.5 sans-serif;flex-shrink:0;position:relative;z-index:20">
+<button id="portfolio-share-app" type="button" style="min-height:44px;padding:8px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#0f172a;cursor:pointer">مشاركة التطبيق ↗</button>
+<span id="portfolio-share-status" role="status" aria-live="polite" style="max-width:100%;overflow-wrap:anywhere"></span>
+<input id="portfolio-share-url" aria-label="رابط التطبيق للنسخ اليدوي" readonly hidden style="width:100%;max-width:430px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;color:#0f172a;background:#fff;direction:ltr">
+</div>
 
   <!-- TOP MASTER EXECUTIVE HEADER -->
   <header id="main-app-header" class="sticky top-0 z-40 glass-card border-b border-slate-800 px-3 sm:px-6 py-2.5 shadow-2xl">
@@ -2238,14 +2278,24 @@
         } else if (viewParam === 'menu' || viewParam === 'customer' || viewParam === 'client' || (slug && viewParam !== 'super')) {
           switchViewMode('CUSTOMER');
         } else {
-          switchViewMode('SUPER_ADMIN');
+          switchViewMode('CUSTOMER');
         }
       } catch (e) {
-        switchViewMode('SUPER_ADMIN');
+        switchViewMode('CUSTOMER');
       }
     }
 
+    let __managementUnlocked = false;
+
     function switchViewMode(mode) {
+      // Management modes are never entered publicly: they require the manager PIN first.
+      if ((mode === 'SUPER_ADMIN' || mode === 'OWNER') && !__managementUnlocked) {
+        promptManagerPin(mode === 'SUPER_ADMIN' ? 'تأكيد دخول وضع المانجر العام' : 'تأكيد دخول لوحة إدارة المطعم والكاشير', function() {
+          __managementUnlocked = true;
+          switchViewMode(mode);
+        });
+        return;
+      }
       currentMode = mode;
       
       const btnSuper = document.getElementById('btn-mode-super');
@@ -3608,16 +3658,30 @@ function renderWaiterView() {
     }
 
     // CLOUD SYNC & SQL
-    function saveCloudSettings() {
+    async function saveCloudSettings() {
       const url = document.getElementById('supabase-url-input').value.trim();
       const key = document.getElementById('supabase-key-input').value.trim();
       SafeStorage.set('supabase_url', url);
       SafeStorage.set('supabase_key', key);
+      const badgeEl = document.getElementById('cloud-sync-status-badge');
 
       if (url && key) {
-        document.getElementById('cloud-sync-status-badge').innerText = 'متصل بالسحابة (Cloud Connected) 🟢';
-        document.getElementById('cloud-sync-status-badge').className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
-        showToast('تم حفظ بيانات الاتصال السحابي وتفعيل المزامنة الفورية!');
+        // Honesty fix: never show "connected" before a real verified read succeeds.
+        badgeEl.innerText = 'جاري فحص الاتصال بالسحابة... ⏳';
+        badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30';
+        try {
+          const testResp = await fetch(url.replace(/\/+$/, '') + '/rest/v1/', {
+            headers: { 'apikey': key, 'Authorization': 'Bearer ' + key }
+          });
+          if (!testResp.ok) throw new Error('HTTP ' + testResp.status);
+          badgeEl.innerText = 'متصل بالسحابة (Cloud Connected) 🟢';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+          showToast('تم التحقق من الاتصال السحابي بقراءة حقيقية وتفعيل المزامنة الفورية! ✅');
+        } catch (cloudErr) {
+          badgeEl.innerText = 'فشل الاتصال بالسحابة - راجع الرابط والمفتاح 🔴';
+          badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+          showToast('تعذر الوصول للسحابة بالبيانات المدخلة. تم الحفظ محلياً فقط.', '⚠️');
+        }
       } else {
         document.getElementById('cloud-sync-status-badge').innerText = 'وضع التخزين المحلي الآمن (Offline-Ready)';
         document.getElementById('cloud-sync-status-badge').className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
@@ -5935,6 +5999,23 @@ for(const id of ['hdr-phone1-val','card-phone1-display']){const e=document.getEl
 for(const id of ['hdr-phone2-val','card-phone2-display']){const e=document.getElementById(id);if(e&&e.textContent!=='01013376681')e.textContent='01013376681';}
 }
 contacts();new MutationObserver(contacts).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['href']});
+})();
+</script>
+  <script>
+(function(){
+ var button=document.getElementById('portfolio-share-app');
+ var status=document.getElementById('portfolio-share-status');
+ var fallback=document.getElementById('portfolio-share-url');
+ var appUrl="https://almohandis-systems.github.io/almohandis-systems/";
+ button.addEventListener('click',async function(){
+  status.textContent='';fallback.hidden=true;
+  if(navigator.share){
+   try{await navigator.share({title:document.title,url:appUrl});status.textContent='تمت المشاركة';return;}
+   catch(error){if(error&&error.name==='AbortError')return;}
+  }
+  try{if(!navigator.clipboard)throw new Error('clipboard unavailable');await navigator.clipboard.writeText(appUrl);status.textContent='تم نسخ رابط التطبيق';}
+  catch(error){fallback.value=appUrl;fallback.hidden=false;fallback.focus();fallback.select();status.textContent='انسخ الرابط الظاهر وشاركه بنفسك';}
+ });
 })();
 </script>
 </body>
